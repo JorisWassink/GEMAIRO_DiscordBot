@@ -3,9 +3,11 @@ import replicate
 import tempfile
 import os
 import re
+import asyncio
 
 from Gemairo_Modules.Conversation import Conversation
 from Gemairo_Modules.CatSelector import tryGetCatImage
+from Gemairo_Modules.HestiaClient import start_event_server
 
 
 # Make sure to add the proper api keys in your environment table
@@ -74,12 +76,6 @@ def get_response(text, name, hist):
         print(f"Error fetching response: {e}")
         return "Sorry, something went wrong with the response."
 
-
-@discordClient.event
-async def on_ready():
-    print(f'{discordClient.user} has connected to Discord!')
-    await discordClient.change_presence(activity=discord.Game(name="chilling"))
-
 async def sendRegularMessage(message, history, currentConversation):
     reply = get_response(message.content, message.author.display_name, history)
     if reply:
@@ -87,12 +83,18 @@ async def sendRegularMessage(message, history, currentConversation):
         currentConversation.saveMessageToHistory(message, reply)
 
 @discordClient.event
+async def on_ready():
+    print(f'{discordClient.user} has connected to Discord!', flush=True)
+    await discordClient.change_presence(activity=discord.Game(name="chilling"))
+    
+    asyncio.create_task(start_event_server(stop))
+
+@discordClient.event
 async def on_message(message):
     if message.author == discordClient.user:
         return
 
     #01 means server, 00 means dm
-
     if(message.guild):
         currentID = f"01_{str(message.guild)}_{str(message.channel)}"
         isServer = True
@@ -130,6 +132,10 @@ async def on_message(message):
         else:
             await sendRegularMessage(message, history, currentConversation)
 
-         
+async def stop():
+    await discordClient.change_presence(
+        status=discord.Status.invisible
+    )
+
         
 discordClient.run(TOKEN)
